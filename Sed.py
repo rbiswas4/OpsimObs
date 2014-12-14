@@ -120,7 +120,7 @@ class Sed:
         #self.zp = -8.9  # default units, Jansky.
         self.zp = -2.5*numpy.log10(3631)
         # If init was given data to initialize class, use it.
-        if (wavelen!= None) & ((flambda!=None) | (fnu!=None)):
+        if (wavelen is not None) & ((flambda is not None) | (fnu is not None)):
             self.setSED(wavelen, flambda=flambda, fnu=fnu)
         return
 
@@ -147,7 +147,7 @@ class Sed:
             self.flambda = numpy.copy(flambda)
         else:
             # Were passed fnu instead : check fnu data type and length.
-            if fnu==None:
+            if fnu is None:
                 raise ValueError("Both fnu and flambda are 'None', cannot set the SED.")
             elif (isinstance(fnu, numpy.ndarray)==False) | (len(fnu)!=len(self.wavelen)):
                 raise ValueError("(No Flambda) - Fnu must be numpy array of same length as Wavelen.")
@@ -285,9 +285,9 @@ class Sed:
         
         Also does data integrity check on wavelen/flux if not self."""
         update_self = False
-        if (wavelen==None) | (flux==None): 
+        if (wavelen is None) | (flux is None): 
             # Then one of the arrays was not passed - check if this is true for both arrays.
-            if (wavelen!=None) | (flux!=None):
+            if (wavelen is not None) | (flux is not None):
                 # Then one of the arrays was passed - raise exception.
                 raise ValueError("Must either pass *both* wavelen/flux pair, or use defaults.")
             update_self = True
@@ -303,10 +303,10 @@ class Sed:
                      wavelen_min=None, wavelen_max=None, wavelen_step=None):
         """Check if wavelen or self.wavelen matches wavelen or wavelen_min/max/step grid."""
         # Check if should use self or passed wavelen.
-        if wavelen==None:
+        if wavelen is None:
             wavelen = self.wavelen
         # Check if wavelength arrays are equal, if wavelen_match passed. 
-        if wavelen_match != None:
+        if wavelen_match is not None:
             if numpy.shape(wavelen_match) != numpy.shape(wavelen):
                 need_regrid=True
             else:
@@ -316,7 +316,7 @@ class Sed:
             need_regrid = True
             # Check if wavelen_min/max/step are set - if ==None, then return (no regridding).
             # It's possible (writeSED) to call this routine, even with no final grid in mind.
-            if ((wavelen_min == None) & (wavelen_max == None) & (wavelen_step==None)):
+            if ((wavelen_min is None) & (wavelen_max is None) & (wavelen_step is None)):
                 need_regrid = False
             else:
                 # Okay, now look at comparison of wavelen to the grid.
@@ -350,8 +350,8 @@ class Sed:
         #  (this simplifies memory management, as if you call this funtion, you will be 
         #   getting new copies of data). 
         # Set up gridded wavelength or copy of wavelen array to match.
-        if wavelen_match == None:
-            if ((wavelen_min == None) & (wavelen_max == None) & (wavelen_step == None)):
+        if wavelen_match is None:
+            if ((wavelen_min is None) & (wavelen_max is None) & (wavelen_step is None)):
                 raise Exception('Must set either wavelen_match or wavelen_min/max/step.')
             wavelen_grid = numpy.arange(wavelen_min, wavelen_max+wavelen_step,
                                         wavelen_step, dtype='float')
@@ -542,7 +542,7 @@ class Sed:
         # then different values for a(x) and b(x) depending on wavelength regime.
         # Also, the extinction is parametrized as R_v = A_v / E(B-V).
         # Magnitudes of extinction (A_l) translates to flux by a_l = -2.5log(f_red / f_nonred).
-        if wavelen == None:
+        if wavelen is None:
             wavelen = numpy.copy(self.wavelen)
         a_x = numpy.zeros(len(wavelen), dtype='float')
         b_x = numpy.zeros(len(wavelen), dtype='float')
@@ -609,18 +609,18 @@ class Sed:
         # Input parameters for reddening can include any of 3 parameters; only 2 are independent.
         # Figure out what parameters were given, and see if self-consistent.
         if R_v == 3.1:
-            if A_v == None:
+            if A_v is None:
                 A_v = R_v * ebv
-            elif (A_v != None) & (ebv != None): 
+            elif (A_v is not None) & (ebv is not None): 
                 # Specified A_v and ebv, so R_v should be nondefault.
                 R_v = A_v / ebv
         if (R_v != 3.1):
-            if (A_v != None) & (ebv != None): 
+            if (A_v is not None) & (ebv is not None): 
                 calcRv = A_v / ebv
                 if calcRv != R_v: 
                     raise ValueError("CCM parametrization expects R_v = A_v / E(B-V);",
                                      "Please check input values, because values are inconsistent.")
-            elif A_v == None:
+            elif A_v is None:
                 A_v = R_v * ebv
         # R_v and A_v values are specified or calculated.
         A_lambda = numpy.empty(len(wavelen), dtype=float)
@@ -689,7 +689,7 @@ class Sed:
         # Use self values if desired, otherwise use values passed to function. 
         if use_self:
             # Calculate fnu if required.
-            if self.fnu == None:
+            if self.fnu is None:
                 # If fnu not present, calculate. (does not regrid). 
                 self.flambdaTofnu()
             wavelen = self.wavelen
@@ -725,7 +725,7 @@ class Sed:
         # Use self values if desired, otherwise use values passed to function. 
         if use_self:
             # Calculate fnu if required.
-            if self.fnu == None:                
+            if self.fnu is None:                
                 self.flambdaTofnu()
             wavelen = self.wavelen
             fnu = self.fnu
@@ -736,7 +736,7 @@ class Sed:
             # Note that resampleSED allocates new memory for wavelen/fnu return values.
             wavelen, fnu = self.resampleSED(wavelen, fnu, wavelen_match=bandpass.wavelen)
         # Calculate bandpass phi value if required.
-        if bandpass.phi == None:
+        if bandpass.phi is None:
             bandpass.sbTophi()
         # Calculate flux in bandpass and then AB magnitude.
         dlambda = wavelen[1] - wavelen[0]
@@ -756,7 +756,7 @@ class Sed:
         # Use self values if desired, otherwise use values passed to function. 
         if use_self:
             # Calculate fnu if required.
-            if self.fnu == None:
+            if self.fnu is None:
                 self.flambdaTofnu()
             wavelen = self.wavelen
             fnu = self.fnu
@@ -767,7 +767,7 @@ class Sed:
             # Note that resampleSED allocates new memory for wavelen/fnu return values.
             wavelen, fnu = self.resampleSED(wavelen, fnu, wavelen_match=bandpass.wavelen)
         # Calculate bandpass phi value if required.
-        if bandpass.phi == None:
+        if bandpass.phi is None:
             bandpass.sbTophi()
         # Calculate flux in bandpass and return this value.
         dlambda = wavelen[1] - wavelen[0]        
@@ -843,8 +843,8 @@ class Sed:
                 # Make a copy of the input data.
                 wavelen = numpy.copy(wavelen)
                 # Look for either flambda or fnu in input data. 
-                if flambda == None:
-                    if fnu == None:
+                if flambda is None:
+                    if fnu is None:
                         raise Exception("If passing wavelength, must also pass fnu or flambda.")
                     # If not given flambda, must calculate from the given values of fnu.
                     wavelen, flambda = self.fnuToflambda(wavelen, fnu)
@@ -874,15 +874,15 @@ class Sed:
             update_self = self.checkUseSelf(wavelen, fnu)
             if update_self:
                 wavelen = self.wavelen
-                if self.fnu == None:
+                if self.fnu is None:
                     self.flambdaTofnu()
                 fnu = self.fnu
             else:
                 # Make a copy of the input data.
                 wavelen = numpy.copy(wavelen)
                 # Look for either flambda or fnu in input data.
-                if fnu == None:
-                    if flambda == None:
+                if fnu is None:
+                    if flambda is None:
                         raise Exception("If passing wavelength, must also pass fnu or flambda.")
                     wavelen, fnu = self.flambdaTofnu(wavelen, fnu)
                 # Make a copy of the input data. 
@@ -933,7 +933,7 @@ class Sed:
                                                 wavelen_step=wavelen_step)
         # Then just use this gridded wavelen/flambda to calculate fnu.
         # Print header.
-        if print_header != None:
+        if print_header is not None:
             print >>f, "#", print_header
         # Print standard header info.
         if print_fnu:
