@@ -54,9 +54,9 @@ class Weather():
         seeing = rawseeing * numpy.power(airmass, 0.6)
         # Adjust seeing for the filter. 
         # If no filter is specified, just use r band.
-        if filter == None:
+        if filter is None:
             filterwavelength = config['filter_wavelen']['r']
-        if filterwavelength == None:
+        if filterwavelength is None:
             #  do this if the filters are a numpy array (and possibly different filters).
             if isinstance(filter, numpy.ndarray) | isinstance(filter, list):
                 filterwavelength = numpy.empty(len(filter), float)

@@ -133,8 +133,6 @@ def setDefaultConfigs(override_file = None):
                 raise warnings.warn('Unrecognized keyword %s: ignoring this value.' %(keyword))
         file.close()
     return config
-
-
 def run(inputobs_file, config):
     
     # Set up a skypos object to hold site information and provide ra/dec -> alt/az/airmass translations.
@@ -142,20 +140,20 @@ def run(inputobs_file, config):
     skypos.setSite(lat=config['latitude'], lon=config['longitude'], height=config['height'],
                    pressure=config['pressure'], temperature=config['temperature'],
                    relativeHumidity=config['relativeHumidity'], lapseRate=config['lapseRate'])
-
+        
     # Set up a Weather object to read the site weather data.
     t = time.time()
     weather = Weather()
     weather.readWeather(config)
     dt, t = dtime(t)
     print '# Reading weather required %.2f seconds' %(dt)
-
+    
     # Set up a Downtime object to read the downtime data.
     downtime = Downtime()
     downtime.readDowntime(config)
     dt, t = dtime(t)
     print '# Reading downtime required %.2f seconds' %(dt)
-
+    
     # Read observations.
     obs = ObsFields()
     obs.readInputObs(inputobs_file, config)
@@ -169,7 +167,7 @@ def run(inputobs_file, config):
         print '# Checking %d input observations required %.2f seconds' %(nobs, dt)
     else:
         print '# Did not check input observations for minimum required timing separation!'
-
+                
     # Calculate alt/az/airmass for all fields.
     obs.getAltAzAirmass(skypos)
     dt, t = dtime(t)
@@ -181,7 +179,7 @@ def run(inputobs_file, config):
     print '# Getting weather information for %d observations required %.2f seconds' %(nobs, dt)
     # Check downtime status for these observations
     obs.getDowntime(downtime, config)
-
+        
     # Calculate position of sun at the times of these observations.
     sun = Sun()
     dt, t = dtime(t)
@@ -189,15 +187,15 @@ def run(inputobs_file, config):
     sun.getAltAz(skypos)
     dt, t = dtime(t)
     print '# Calculating sun position at %d times required %.2f seconds' %(nobs, dt)
-
-    # Calculate the position, phase and altitude of the Moon. 
+                
+    # Calculate the position, phase and altitude of the Moon.
     moon = Moon()
     moon.calcPos(obs.mjd, config)
     moon.getAltAz(skypos)
     dt, t = dtime(t)
     print '# Calculating moon position at %d times required %.2f seconds' %(nobs, dt)
-
-    # Will clean this up and put into classes as time is available. 
+    
+    # Will clean this up and put into classes as time is available.
     # Calculate the sky brightness. 
     skybright = SkyBright(model='Perry', solar_phase='ave')    
     sky = numpy.zeros(len(obs.mjd), 'float')
@@ -211,6 +209,135 @@ def run(inputobs_file, config):
     sky = numpy.where(sun.alt > -18, 17, sky)
     dt, t = dtime(t)
     print '# Calculating the sky brightness for %d observations required %.2f seconds' %(nobs, dt)
+                                                                   
+    # Calculate the 5-sigma limiting magnitudes. 
+    maglimit = numpy.zeros(len(obs.mjd), 'float')
+    m5 = m5calculations()
+    # Read the throughput curves for LSST (needed to determine zeropoints). 
+    m5.setup_Throughputs(verbose=False)
+    # Swap 'y4' for 'y' (or other default y value). 
+    tmp_filters = m5.check_filter(obs.filter)
+
+    # Determine the unique exposure times, as have to set up dark current, etc. based on this for telescope ZP's.
+    exptimes = numpy.unique(obs.exptime)
+    for expT in exptimes:
+        condition = [obs.exptime == expT]
+        # Calculate telescope zeropoints.        
+        # Calculate actual open-sky time, after accounting for readout time, number of exposures per visit, shutter time, etc.
+        opentime = ((expT - config['readout_time']*config['nexp_visit'] -  config['nexp_visit']* config['add_shutter']*config['shutter_time']) 
+                / float(config['nexp_visit']))
+        print "# Calculating depth for %d exposures of %.2f open shutter time" %(config['nexp_visit'], opentime)
+        m5.setup_values(expTime=opentime, nexp=config['nexp_visit'])
+
+        # Calculate 5sigma limiting magnitudes. 
+        maglimit[condition] = m5.calc_maglimit(obs.seeing[condition], sky[condition], tmp_filters[condition], obs.airmass[condition], snr=5.0)        
+    dt, t = dtime(t)
+    print '# Calculating the m5 limit for %d observations required %.2f seconds' %(nobs, dt)
+            
+    # Print out interesting values. 
+    obs.printObs(sun, moon, sky, maglimit,  config)
+
+    
+def getopsimouts(inputobs_file , override_config_file=None, outfile=None, 
+	         verbose=False):
+    """
+    Obtains the output of opsimObs for interesting quantities based on the input
+    file. This function is used in creating the ouputs converted into the simlib
+    file.
+
+    TODO: Actually this function should go into makelsstsims rather than here.
+    """
+    config = setDefaultConfigs(override_config_file)
+
+    # Set up a skypos object to hold site information and provide ra/dec -> alt/az/airmass translations.
+    skypos = SkyPos()
+    skypos.setSite(lat=config['latitude'], lon=config['longitude'], height=config['height'],
+                   pressure=config['pressure'], temperature=config['temperature'],
+                   relativeHumidity=config['relativeHumidity'], lapseRate=config['lapseRate'])
+
+    # Set up a Weather object to read the site weather data.
+    t = time.time()
+    weather = Weather()
+    weather.readWeather(config)
+    dt, t = dtime(t)
+    if verbose:
+        print '# Reading weather required %.2f seconds' %(dt)
+
+    # Set up a Downtime object to read the downtime data.
+    downtime = Downtime()
+    downtime.readDowntime(config)
+    dt, t = dtime(t)
+    if verbose:
+        print '# Reading downtime required %.2f seconds' %(dt)
+
+    # Read observations.
+    obs = ObsFields()
+    obs.readInputObs(inputobs_file, config)
+    nobs = len(obs.ra)
+    dt, t = dtime(t)
+    if verbose:
+        print '# Reading %d input observations required %.2f seconds' %(nobs, dt)
+    # Check timing of input observations.
+    if config['check_observations']:
+        obs.checkInputObs(config)
+        dt, t = dtime(t)
+        if verbose:
+            print '# Checking %d input observations required %.2f seconds' %(nobs, dt)
+            print '# Did not check input observations for minimum required timing separation!'
+
+    # Calculate alt/az/airmass for all fields.
+    obs.getAltAzAirmass(skypos)
+    dt, t = dtime(t)
+    if verbose:
+        print '# Calculating alt/az/airmass for %d input observations required %.2f seconds' %(nobs, dt)
+    # Calculate weather (cloud/seeing) for all fields.
+    dt, t = dtime(t)
+    obs.getObsWeather(weather, config)
+    dt, t = dtime(t)
+    if verbose:
+        print '# Getting weather information for %d observations required %.2f seconds' %(nobs, dt)
+    # Check downtime status for these observations
+    obs.getDowntime(downtime, config)
+
+    # Calculate position of sun at the times of these observations.
+    sun = Sun()
+    dt, t = dtime(t)
+    sun.calcPos(obs.mjd)
+    sun.getAltAz(skypos)
+    dt, t = dtime(t)
+    if verbose:
+        print '# Calculating sun position at %d times required %.2f seconds' %(nobs, dt)
+
+    # Calculate the position, phase and altitude of the Moon. 
+    moon = Moon()
+    moon.calcPos(obs.mjd, config)
+    moon.getAltAz(skypos)
+    dt, t = dtime(t)
+    if verbose:
+        print '# Calculating moon position at %d times required %.2f seconds' %(nobs, dt)
+
+    # Will clean this up and put into classes as time is available. 
+    # Calculate the sky brightness. 
+    skybright = SkyBright(model='Perry', solar_phase='ave')    
+    sky = numpy.zeros(len(obs.mjd), 'float')
+    filterlist = numpy.unique(obs.filter)
+    for f in filterlist:
+        condition = (obs.filter == f)
+        skybright.setSkyBright(obs.alt[condition], obs.az[condition], moon.alt[condition], moon.az[condition], 
+                               moon.phase[condition], bandpass = f)
+        sky[condition] = skybright.getSkyBright()
+    """
+    for i in range(len(obs.mjd)):
+        # Calculate sky brightness for each observation. 
+        skybright.setSkyBright(obs.alt[i], obs.az[i], moon.alt[i], moon.az[i], moon.phase[i], 
+                               bandpass=obs.filter[i])
+        sky[i] = skybright.getSkyBright()
+    """
+    # Add modification to match 'skybrightness_modified' (which is brighter in twilight)
+    sky = numpy.where(sun.alt > -18, 17, sky)
+    dt, t = dtime(t)
+    if verbose:
+        print '# Calculating the sky brightness for %d observations required %.2f seconds' %(nobs, dt)
 
     # Calculate the 5-sigma limiting magnitudes. 
     maglimit = numpy.zeros(len(obs.mjd), 'float')
@@ -232,12 +359,12 @@ def run(inputobs_file, config):
         # Calculate 5sigma limiting magnitudes. 
         maglimit[condition] = m5.calc_maglimit(obs.seeing[condition], sky[condition], tmp_filters[condition], obs.airmass[condition], snr=5.0)        
     dt, t = dtime(t)
-    print '# Calculating the m5 limit for %d observations required %.2f seconds' %(nobs, dt)
+    if verbose:
+        print '# Calculating the m5 limit for %d observations required %.2f seconds' %(nobs, dt)
         
     # Print out interesting values. 
-    obs.printObs(sun, moon, sky, maglimit,  config)
-    
-
+    obs.printObs(sun, moon, sky, maglimit,  config, outfile)
+ 
 
 
 if __name__ == '__main__':
