@@ -169,13 +169,24 @@ class ObsFields():
         return
 
 
-    def printObs(self, sun, moon, sky, maglimit, config):
+    def printObs(self, sun, moon, sky, maglimit, config, outfile=None):
         survey_day = numpy.floor(self.mjd - config['sim_start'] - config['midnight'] + 0.5)
-        print '# RA  Dec  MJD  filter  Alt  Az  Airmass  Cloud RawSeeing  Seeing  SunAlt SunAz   MoonAlt  MoonAz  MoonPhase MoonPhase(opsim) SkyBrightness Maglimit SurveyNight Downtime?(0=No,1=Yes) LineComment'
+        if outfile is None:
+            print '# RA  Dec  MJD  filter  Alt  Az  Airmass  Cloud RawSeeing  Seeing  SunAlt SunAz   MoonAlt  MoonAz  MoonPhase MoonPhase(opsim) SkyBrightness Maglimit SurveyNight Downtime?(0=No,1=Yes) LineComment'
+        else:
+            f = open (outfile, "w")
+            print >>f, '# RA  Dec  MJD  filter  Alt  Az  Airmass  Cloud RawSeeing  Seeing  SunAlt SunAz   MoonAlt  MoonAz  MoonPhase MoonPhase(opsim) SkyBrightness Maglimit SurveyNight Downtime?(0=No,1=Yes) LineComment'
         for i in range(len(self.mjd)):
-            print '%.5f %.5f %.7f %s %.5f %.4f %.3f %.2f %.3f %.3f %.3f %.3f %.3f %.2f %.2f %.2f %.2f %.2f %d %d %s' \
+            ss = '%.5f %.5f %.7f %s %.5f %.4f %.3f %.2f %.3f %.3f %.3f %.3f %.3f %.2f %.2f %.2f %.2f %.2f %d %d %s' \
                 % (self.ra[i], self.dec[i], self.mjd[i], self.filter[i],
                    self.alt[i], self.az[i], self.airmass[i],
                    self.cloud[i], self.rawseeing[i], self.seeing[i],
                    sun.alt[i], sun.az[i], moon.alt[i], moon.az[i], moon.phase[i], moon.illum[i], sky[i], maglimit[i], survey_day[i], self.downstatus[i], self.linecomment[i]) 
+            if outfile is None:
+                print ss
+            else:
+                print >> f, ss
+                    
+        if outfile is not None:
+            f.close()
         return
